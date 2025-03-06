@@ -1,4 +1,5 @@
 using ImageFilters.Filters;
+using System.Drawing.Imaging;
 
 namespace ImageFilters
 {
@@ -6,6 +7,7 @@ namespace ImageFilters
     {
         private readonly Stack<IFilter> _undoStack;
         private readonly Stack<IFilter> _redoStack;
+        private string _path;
         private IFilter _currentFilter;
         public Form1()
         {
@@ -19,7 +21,13 @@ namespace ImageFilters
             OpenFileDialog dialog = new OpenFileDialog();
             if (dialog.ShowDialog() == DialogResult.OK)
             {
-                pictureBox1.Image = new Bitmap(dialog.FileName);
+                _path = dialog.FileName;
+                using (var stream = new FileStream(_path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    pictureBox1.Image = new Bitmap(stream);
+                }
+                saveToolStripMenuItem.Enabled = true;
+                saveAsToolStripMenuItem.Enabled = true;
             }
         }
 
@@ -107,6 +115,60 @@ namespace ImageFilters
             if (_redoStack.Count == 0)
             {
                 RedoButton.Enabled = false;
+            }
+        }
+
+        private void saveToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (Bitmap tempImage = new Bitmap(pictureBox1.Image))
+                {
+                    tempImage.Save(_path, GetImageFormat(_path));
+                }
+                MessageBox.Show("Image saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error saving file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private ImageFormat GetImageFormat(string filePath)
+        {
+            string extension = Path.GetExtension(filePath).ToLower();
+            return extension switch
+            {
+                ".jpg" or ".jpeg" => ImageFormat.Jpeg,
+                ".png" => ImageFormat.Png,
+                ".bmp" => ImageFormat.Bmp,
+                ".gif" => ImageFormat.Gif,
+                ".tiff" => ImageFormat.Tiff,
+                _ => throw new NotSupportedException("Unsupported file format")
+            };
+        }
+
+        private void saveAsToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+            {
+                saveFileDialog.Filter = "PNG Image|*.png|JPEG Image|*.jpg;*.jpeg|Bitmap Image|*.bmp|GIF Image|*.gif|TIFF Image|*.tiff";
+                saveFileDialog.Title = "Save Image As";
+                saveFileDialog.FileName = "image";
+
+                if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        pictureBox1.Image.Save(saveFileDialog.FileName, GetImageFormat(saveFileDialog.FileName));
+                        _path = saveFileDialog.FileName; // Update file path if needed
+                        MessageBox.Show("Image saved successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Error saving file: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
             }
         }
     }
